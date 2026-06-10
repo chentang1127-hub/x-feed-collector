@@ -1,0 +1,60 @@
+name: Collect X Tweets
+
+on:
+  schedule:
+    # 每 30 分钟运行一次（UTC 时间）
+    # 如果你的仓库是私有的，建议改为 */60 * * * * 以节省配额
+    - cron: '*/30 * * * *'
+  # 允许手动触发（在 GitHub 页面点按钮即可测试）
+  workflow_dispatch:
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    # 关键：给 Workflow 写权限，才能把去重记录 commit 回仓库
+    permissions:
+      contents: write
+
+    steps:
+      # 1. 签出代码
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. 安装 Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. 安装依赖
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. 运行采集脚本
+      - name: Run collector
+        env:
+          X_AUTH_TOKEN:    ${{ secrets.X_AUTH_TOKEN }}
+          X_CT0:           ${{ secrets.X_CT0 }}
+          FEISHU_APP_ID:   ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          TARGET_USERNAME: "Serenity"
+        run: python main.py
+
+      # 5. 把更新后的去重记录提交回仓库
+      #    这样下次运行就能知道哪些推文已经处理过了
+      - name: Commit seen_tweets.json
+        if: always()  # 即使上一步有推文失败，也保存已成功的部分
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/seen_tweets.json
+          if git diff --staged --quiet; then
+            echo "📭 去重记录无变化"
+          else
+            git commit -m "chore: update seen tweets [skip ci]"
+            git push
+            echo "✅ 去重记录已提交"
+          fi

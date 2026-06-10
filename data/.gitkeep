@@ -1,0 +1,2 @@
+# 这个文件确保 data 目录能被 git 追踪
+# 实际运行时，seen_tweets.json 会由脚本自动创建
