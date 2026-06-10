@@ -40,7 +40,7 @@ jobs:
           FEISHU_APP_ID:   ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          TARGET_USERNAME: "Serenity"
+          TARGET_USERNAME: "aleabitoreddit"
         run: python main.py
 
       # 5. 把更新后的去重记录提交回仓库
