@@ -1,11 +1,7 @@
 name: Collect X Tweets
 
 on:
-  schedule:
-    # 每 10 分钟运行一次（UTC 时间）
-    # 如果你的仓库是私有的，建议改为 */30 * * * * 以节省配额
-    - cron: '*/10 * * * *'
-  # 允许手动触发（在 GitHub 页面点按钮即可测试）
+  # 允许手动触发（backfill / pdf 模式）
   workflow_dispatch:
     inputs:
       mode:
@@ -52,11 +48,10 @@ jobs:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           TARGET_USERNAME: "aleabitoreddit"
         run: |
-          MODE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || 'collect' }}"
-          if [ "$MODE" = "backfill" ]; then
+          if [ "${{ github.event.inputs.mode }}" = "backfill" ]; then
             echo "📥 回填模式: 拉取 100 条历史推文"
             python main.py --backfill
-          elif [ "$MODE" = "pdf" ]; then
+          elif [ "${{ github.event.inputs.mode }}" = "pdf" ]; then
             echo "📄 PDF 导出模式: 导出订阅专属推文"
             python export_pdf.py
             echo "pdf_path=$(ls tweets_export_*.pdf)" >> $GITHUB_ENV
@@ -67,7 +62,7 @@ jobs:
 
       # 5. 上传 PDF（仅 pdf 模式）
       - name: Upload PDF artifact
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'pdf'
+        if: github.event.inputs.mode == 'pdf'
         uses: actions/upload-artifact@v4
         with:
           name: subscriber-tweets-pdf
