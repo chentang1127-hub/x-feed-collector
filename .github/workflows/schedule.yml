@@ -2,7 +2,7 @@ name: Scheduled Collection
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '0,10,20,30,40,50 * * * *'
   workflow_dispatch:  # 也允许手动测试
 
 jobs:
