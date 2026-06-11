@@ -87,6 +87,7 @@ def _process_tweet(
     target_username: str,
     index: int = 1,
     total: int = 1,
+    title_prefix: str = "📢 新推文",
 ) -> bool:
     """处理单条推文：翻译 → 下载图片 → 上传 → 推送到飞书。返回是否成功。"""
     tid = tweet["id"]
@@ -129,6 +130,7 @@ def _process_tweet(
             created_at=created,
             author=target_username,
             image_keys=image_keys,
+            title_prefix=title_prefix,
         )
         if ok:
             storage.mark_seen(tid)
@@ -195,21 +197,56 @@ def main() -> None:
     new_tweets = [t for t in tweets if not storage.is_seen(t["id"])]
     print(f"   其中 {len(new_tweets)} 条是新推文")
 
-    if not new_tweets:
+    vip_webhook_raw = os.environ.get("FEISHU_VIP_WEBHOOK_URL", "").strip()
+    has_vip = bool(vip_webhook_raw)
+
+    if not new_tweets and not has_vip:
         print("\n✅ 没有新推文，无需推送。")
         storage.save()
         return
 
-    # ---- 逐条处理 ----
-    success = 0
-    for i, tweet in enumerate(new_tweets, 1):
-        if _process_tweet(tweet, translator, feishu, storage, target_username, i, len(new_tweets)):
-            success += 1
+    # ---- 逐条处理（普通推文 → 所有群） ----
+    if new_tweets:
+        success = 0
+        for i, tweet in enumerate(new_tweets, 1):
+            if _process_tweet(tweet, translator, feishu, storage, target_username, i, len(new_tweets)):
+                success += 1
+        print(f"\n📢 普通推文: 成功 {success}/{len(new_tweets)} 条")
+    else:
+        print("\n✅ 没有新的普通推文")
+
+    # ---- VIP：订阅专属推文 → 仅 VIP 群 ----
+    if has_vip:
+        vip_webhooks = [h.strip() for h in vip_webhook_raw.split(",") if h.strip()]
+        vip_feishu = Feishu(
+            app_id=feishu_app_id,
+            app_secret=feishu_app_secret,
+            webhook_url=vip_webhooks if len(vip_webhooks) > 1 else vip_webhooks[0],
+        )
+
+        print(f"\n🌟 正在获取 @{target_username} 的订阅专属推文...")
+        try:
+            vip_tweets, _ = collector.get_super_follow_tweets(target_username, count=10)
+        except Exception as exc:
+            print(f"   ⚠️ 拉取失败: {exc}")
+            vip_tweets = []
+
+        vip_new = [t for t in vip_tweets if not storage.is_seen(t["id"])]
+        print(f"   拉取到 {len(vip_tweets)} 条，其中 {len(vip_new)} 条是新推文")
+
+        if vip_new:
+            vip_success = 0
+            for i, tweet in enumerate(vip_new, 1):
+                if _process_tweet(tweet, translator, vip_feishu, storage, target_username, i, len(vip_new), title_prefix="🌟 订阅专属"):
+                    vip_success += 1
+            print(f"🌟 订阅推文: 成功 {vip_success}/{len(vip_new)} 条（仅 VIP 群）")
+        else:
+            print("✅ 没有新的订阅专属推文")
 
     # ---- 保存去重记录 ----
     storage.save()
     print(f"\n{'=' * 50}")
-    print(f"🎉 本轮完成: 成功 {success}/{len(new_tweets)} 条")
+    print(f"🎉 本轮完成")
     print(f"{'=' * 50}")
 
 

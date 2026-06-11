@@ -46,6 +46,7 @@ jobs:
           FEISHU_APP_ID:   ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
           TARGET_USERNAME: "aleabitoreddit"
         run: |
           if [ "${{ github.event.inputs.mode }}" = "backfill" ]; then

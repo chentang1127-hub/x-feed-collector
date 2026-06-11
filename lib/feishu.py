@@ -89,6 +89,7 @@ class Feishu:
         created_at: datetime,
         author: str = "Serenity",
         image_keys: Optional[List[str]] = None,
+        title_prefix: str = "📢 新推文",
     ) -> bool:
         """
         发送富文本消息（原文 + 翻译 + 图片）到飞书群。
@@ -131,7 +132,7 @@ class Feishu:
             "content": {
                 "post": {
                     "zh_cn": {
-                        "title": f"📢 新推文 Serenity @{author}",
+                        "title": f"{title_prefix} Serenity @{author}",
                         "content": content_blocks,
                     }
                 }
