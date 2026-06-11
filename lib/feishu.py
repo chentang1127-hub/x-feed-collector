@@ -20,12 +20,13 @@ import requests
 
 
 class Feishu:
-    """飞书机器人：上传图片 + 推送消息。"""
+    """飞书机器人：上传图片 + 推送消息（支持多群）。"""
 
-    def __init__(self, app_id: str, app_secret: str, webhook_url: str):
+    def __init__(self, app_id: str, app_secret: str, webhook_url: str | list[str]):
         self.app_id = app_id
         self.app_secret = app_secret
-        self.webhook_url = webhook_url
+        # 统一转为列表，支持单个或多个 webhook
+        self.webhooks = [webhook_url] if isinstance(webhook_url, str) else webhook_url
         self._token: Optional[str] = None
         self._token_expiry: float = 0.0
 
@@ -137,13 +138,21 @@ class Feishu:
             },
         }
 
-        resp = requests.post(self.webhook_url, json=payload, timeout=30)
-        resp.raise_for_status()
-        result = resp.json()
+        all_ok = True
+        for i, hook in enumerate(self.webhooks):
+            try:
+                resp = requests.post(hook, json=payload, timeout=30)
+                resp.raise_for_status()
+                result = resp.json()
 
-        code = result.get("code", -1)
-        if code != 0:
-            print(f"❌ 飞书发送失败: {result.get('msg', result)}")
-            return False
+                code = result.get("code", -1)
+                if code != 0:
+                    print(f"❌ 群{i+1} 发送失败: {result.get('msg', result)}")
+                    all_ok = False
+                elif len(self.webhooks) > 1:
+                    print(f"  ✅ 群{i+1} 发送成功")
+            except Exception as exc:
+                print(f"❌ 群{i+1} 发送异常: {exc}")
+                all_ok = False
 
-        return True
+        return all_ok

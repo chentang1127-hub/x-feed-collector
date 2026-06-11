@@ -172,6 +172,8 @@ def main() -> None:
     feishu_app_id = _get_env("FEISHU_APP_ID")
     feishu_app_secret = _get_env("FEISHU_APP_SECRET")
     feishu_webhook = _get_env("FEISHU_WEBHOOK_URL")
+    # 支持多个群：用逗号分隔 webhook 地址
+    webhooks = [h.strip() for h in feishu_webhook.split(",") if h.strip()]
 
     # ---- 初始化 ----
     data_dir = ROOT / "data"
@@ -181,7 +183,7 @@ def main() -> None:
     feishu = Feishu(
         app_id=feishu_app_id,
         app_secret=feishu_app_secret,
-        webhook_url=feishu_webhook,
+        webhook_url=webhooks if len(webhooks) > 1 else webhooks[0],
     )
 
     # ---- 采集推文 ----
@@ -225,6 +227,7 @@ def _run_backfill() -> None:
     feishu_app_id = _get_env("FEISHU_APP_ID")
     feishu_app_secret = _get_env("FEISHU_APP_SECRET")
     feishu_webhook = _get_env("FEISHU_WEBHOOK_URL")
+    webhooks = [h.strip() for h in feishu_webhook.split(",") if h.strip()]
 
     # ---- 初始化（跳过重复检查） ----
     data_dir = ROOT / "data"
@@ -234,7 +237,7 @@ def _run_backfill() -> None:
     feishu = Feishu(
         app_id=feishu_app_id,
         app_secret=feishu_app_secret,
-        webhook_url=feishu_webhook,
+        webhook_url=webhooks if len(webhooks) > 1 else webhooks[0],
     )
 
     # ---- 翻页采集直到达到 100 条或没有更多 ----
