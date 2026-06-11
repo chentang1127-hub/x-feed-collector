@@ -10,8 +10,11 @@
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
+
+# 北京时间 (UTC+8)
+CST = timezone(timedelta(hours=8))
 
 import requests
 
@@ -97,7 +100,10 @@ class Feishu:
         """
         image_keys = image_keys or []
 
-        time_str = created_at.strftime("%Y-%m-%d %H:%M UTC")
+        # 转换为北京时间
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        time_str = created_at.astimezone(CST).strftime("%Y-%m-%d %H:%M CST")
 
         # 构建消息段落
         content_blocks: list = []

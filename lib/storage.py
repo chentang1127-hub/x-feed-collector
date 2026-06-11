@@ -12,11 +12,12 @@ from typing import Set
 class Storage:
     """管理已处理推文 ID 的持久化存储。"""
 
-    def __init__(self, data_dir: str = "data"):
+    def __init__(self, data_dir: str = "data", skip_dedup: bool = False):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.file_path = self.data_dir / "seen_tweets.json"
         self.seen_ids: Set[str] = set()
+        self.skip_dedup = skip_dedup
         self._load()
 
     # ------------------------------------------------------------------
@@ -32,7 +33,9 @@ class Storage:
 
     # ------------------------------------------------------------------
     def is_seen(self, tweet_id: str) -> bool:
-        """推文是否已处理过。"""
+        """推文是否已处理过（若 skip_dedup 为 True 则总返回 False）。"""
+        if self.skip_dedup:
+            return False
         return tweet_id in self.seen_ids
 
     # ------------------------------------------------------------------
