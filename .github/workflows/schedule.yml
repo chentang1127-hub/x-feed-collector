@@ -40,8 +40,8 @@ jobs:
           FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
           TARGET_USERNAME: "aleabitoreddit"
         run: |
-          echo "📢 全量推送模式"
-          python main.py --force-all
+          echo "📢 定时采集模式"
+          python main.py
 
       - name: Commit seen_tweets.json
         if: always()

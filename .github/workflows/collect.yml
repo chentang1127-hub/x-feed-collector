@@ -13,6 +13,7 @@ on:
           - collect
           - backfill
           - pdf
+          - force-all
 
 jobs:
   collect:
@@ -56,6 +57,9 @@ jobs:
             echo "📄 PDF 导出模式: 导出订阅专属推文"
             python export_pdf.py
             echo "pdf_path=$(ls tweets_export_*.pdf)" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.mode }}" = "force-all" ]; then
+            echo "📢 全量推送模式: 普通50条 + VIP50条（跳过去重）"
+            python main.py --force-all
           else
             echo "📢 常规采集模式"
             python main.py
