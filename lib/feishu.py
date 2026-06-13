@@ -132,7 +132,7 @@ class Feishu:
             "content": {
                 "post": {
                     "zh_cn": {
-                        "title": f"{title_prefix} Serenity @{author}",
+                        "title": f"{title_prefix} @{author}",
                         "content": content_blocks,
                     }
                 }

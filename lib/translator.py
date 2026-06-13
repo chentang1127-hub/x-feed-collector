@@ -50,7 +50,7 @@ class Translator:
             if len(text) > 500:
                 print("   尝试分段翻译...")
                 return self._translate_long(text, source_lang, target_lang)
-            return f"[翻译失败] {text[:200]}..."
+            return f"[翻译失败，以下为英文原文]\n{text}"
 
     # ------------------------------------------------------------------
     def _translate_long(

@@ -92,6 +92,7 @@ def _build_pdf(
     translator: Translator,
     font_path: str,
     output_path: str,
+    username: str = "aleaborteddit",
 ) -> None:
     """用 fpdf2 生成 PDF。"""
     from fpdf import FPDF
@@ -130,7 +131,7 @@ def _build_pdf(
             pdf.set_font(font_name, "", 16)
         else:
             pdf.set_font(font_name, "B", 16)
-        pdf.cell(0, 10, f"Serenity @aleaborteddit", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.cell(0, 10, f"Serenity @{username}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.cell(0, 8, f"订阅专属推文 #{i}/{total}  —  {time_str}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.ln(6)
 
@@ -296,13 +297,13 @@ def main() -> None:
     if not all_tweets:
         print("\n⚠️ 没有找到订阅专属推文。")
         print("   请确认:")
-        print("   1. 该账号已付费订阅 @{target_username}")
-        print("   2. @{target_username} 开启了订阅功能")
+        print(f"   1. 该账号已付费订阅 @{target_username}")
+        print(f"   2. @{target_username} 开启了订阅功能")
         print("   3. X_AUTH_TOKEN 和 X_CT0 是正确的")
         return
 
     # ---- 生成 PDF ----
-    _build_pdf(all_tweets, translator, font_path, output)
+    _build_pdf(all_tweets, translator, font_path, output, username=target_username)
 
     print(f"\n{'=' * 50}")
     print(f"🎉 PDF 导出完成: {output}")
