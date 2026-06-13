@@ -76,7 +76,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked
           git pull --rebase origin main  # 先拉取远端最新去重记录，避免覆盖
+          git stash pop || true
           git add data/seen_tweets.json
           if git diff --staged --quiet; then
             echo "📭 去重记录无变化"
