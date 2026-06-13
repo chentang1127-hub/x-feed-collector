@@ -153,6 +153,7 @@ def _process_tweet(
 def main() -> None:
     # ---- CLI：是否回填模式 ----
     is_backfill = "--backfill" in sys.argv
+    is_force_all = "--force-all" in sys.argv
 
     if is_backfill:
         print("=" * 50)
@@ -161,9 +162,14 @@ def main() -> None:
         _run_backfill()
         return
 
-    print("=" * 50)
-    print("  X Feed Collector — 启动")
-    print("=" * 50)
+    if is_force_all:
+        print("=" * 50)
+        print("  X Feed Collector — 全量推送模式 (普通50 + VIP50，跳过去重)")
+        print("=" * 50)
+    else:
+        print("=" * 50)
+        print("  X Feed Collector — 启动")
+        print("=" * 50)
 
     # ---- 读取配置 ----
     target_username = os.environ.get("TARGET_USERNAME", "Serenity").strip()
@@ -177,9 +183,12 @@ def main() -> None:
     # 支持多个群：用逗号分隔 webhook 地址
     webhooks = [h.strip() for h in feishu_webhook.split(",") if h.strip()]
 
+    # ---- force-all 模式参数 ----
+    regular_count = 50 if is_force_all else 20
+
     # ---- 初始化 ----
     data_dir = ROOT / "data"
-    storage = Storage(data_dir=str(data_dir))
+    storage = Storage(data_dir=str(data_dir), skip_dedup=is_force_all)
     collector = XCollector(auth_token=auth_token, ct0=ct0)
     translator = Translator()
     feishu = Feishu(
@@ -237,7 +246,7 @@ def main() -> None:
 
     # ---- ② 拉取普通推文，排除 VIP 订阅专属推文 ----
     print(f"\n🔍 正在获取 @{target_username} 的最新推文...")
-    tweets = collector.get_recent_tweets(target_username, count=20)
+    tweets = collector.get_recent_tweets(target_username, count=regular_count)
     print(f"   拉取到 {len(tweets)} 条（已过滤转推/回复）")
 
     # 去重 + 排除 VIP 推文（VIP 走专属通道，不发给普通群）
