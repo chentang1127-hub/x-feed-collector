@@ -1,9 +1,14 @@
 name: Scheduled Collection
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'
-  workflow_dispatch:  # 手动测试
+  workflow_dispatch:  # 手动触发
+  repository_dispatch:  # 自触发链
+    types: [collect]
+
+# 防重复：同一时间只允许一个实例运行
+concurrency:
+  group: scheduled-collection
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -43,7 +48,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main  # 先拉取远端最新去重记录，避免覆盖
+          git pull --rebase origin main
           git add data/seen_tweets.json
           if git diff --staged --quiet; then
             echo "📭 去重记录无变化"
@@ -53,3 +58,28 @@ jobs:
             echo "✅ 去重记录已提交"
           fi
 
+      # 自触发：仅当没有其他活跃任务时才调度下一次
+      - name: Schedule next run
+        if: always()
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          # 检查是否已有其他待运行的任务
+          RUNNING=$(curl -s -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress&status=queued&status=pending&per_page=20" | \
+            python3 -c "import json,sys; data=json.load(sys.stdin); others=[r for r in data['workflow_runs'] if r['id']!='${{ github.run_id }}']; print(len(others))")
+
+          if [ "$RUNNING" -gt 0 ]; then
+            echo "⏭️ 已有 $RUNNING 个其他任务在队列中，跳过本次调度（链是活的）"
+            exit 0
+          fi
+
+          echo "⏳ 10 分钟后触发下一次采集..."
+          sleep 600
+          curl -s -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"collect"}'
+          echo "🔁 已触发下一次采集"
