@@ -77,8 +77,8 @@ jobs:
             exit 0
           fi
 
-          echo "⏳ 10 分钟后触发下一次采集..."
-          sleep 600
+          echo "⏳ 30 分钟后触发下一次采集..."
+          sleep 1800
           curl -s -X POST \
             -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
