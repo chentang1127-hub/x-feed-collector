@@ -42,6 +42,8 @@ class Translator:
             result = GoogleTranslator(
                 source=source_lang, target=target_lang
             ).translate(text)
+            if result is None:
+                raise ValueError("GoogleTranslator returned None")
             return result
 
         except Exception as exc:
@@ -73,7 +75,10 @@ class Translator:
                 t = GoogleTranslator(
                     source=source_lang, target=target_lang
                 ).translate(part)
-                results.append(t)
+                if t is None:
+                    results.append(f"[翻译失败]{part[:80]}...")
+                else:
+                    results.append(t)
             except Exception:
                 results.append(f"[翻译失败]{part[:80]}...")
         return " ".join(results)
