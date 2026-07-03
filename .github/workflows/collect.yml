@@ -48,7 +48,7 @@ jobs:
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
-          TARGET_USERNAME: "aleabitoreddit"
+          TARGET_USERNAME: "aleabitoreddit,chuge857"
         run: |
           if [ "${{ github.event.inputs.mode }}" = "backfill" ]; then
             echo "📥 回填模式: 拉取 100 条历史推文"
