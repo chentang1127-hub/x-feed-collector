@@ -172,7 +172,9 @@ def main() -> None:
         print("=" * 50)
 
     # ---- 读取配置 ----
-    target_username = os.environ.get("TARGET_USERNAME", "Serenity").strip()
+    target_username_raw = os.environ.get("TARGET_USERNAME", "Serenity").strip()
+    usernames = [u.strip() for u in target_username_raw.split(",") if u.strip()]
+    primary_username = usernames[0]  # VIP 订阅只针对主账号
 
     auth_token = _get_env("X_AUTH_TOKEN")
     ct0 = _get_env("X_CT0")
@@ -213,7 +215,7 @@ def main() -> None:
             webhook_url=vip_webhooks if len(vip_webhooks) > 1 else vip_webhooks[0],
         )
 
-        print(f"\n🌟 正在获取 @{target_username} 的订阅专属推文...")
+        print(f"\n🌟 正在获取 @{primary_username} 的订阅专属推文...")
         vip_tweets: list[dict] = []
         vip_cursor: str | None = None
         vip_target = 50  # 最多拉 50 条订阅推文
@@ -223,7 +225,7 @@ def main() -> None:
             needed = vip_target - len(vip_tweets)
             try:
                 batch, vip_cursor = collector.get_super_follow_tweets(
-                    target_username, count=min(needed, 50), cursor=vip_cursor
+                    primary_username, count=min(needed, 50), cursor=vip_cursor
                 )
             except Exception as exc:
                 print(f"   ⚠️ 第 {vip_page} 页拉取失败: {exc}")
@@ -244,34 +246,40 @@ def main() -> None:
         vip_ids = {t["id"] for t in vip_tweets}  # 所有 VIP 推文 ID（含已 seen 的）
         print(f"   拉取到 {len(vip_tweets)} 条订阅推文，其中 {len(vip_new)} 条是新推文")
 
-    # ---- ② 拉取普通推文，排除 VIP 订阅专属推文 ----
-    print(f"\n🔍 正在获取 @{target_username} 的最新推文...")
-    tweets = collector.get_recent_tweets(target_username, count=regular_count)
-    print(f"   拉取到 {len(tweets)} 条（已过滤转推/回复）")
+    # ---- ② 拉取普通推文（遍历所有账号），排除 VIP 订阅专属推文 ----
+    all_new_tweets: list[tuple[str, dict]] = []  # (username, tweet)
 
-    # 去重 + 排除 VIP 推文（VIP 走专属通道，不发给普通群）
-    new_tweets = [
-        t for t in tweets
-        if not storage.is_seen(t["id"]) and t["id"] not in vip_ids
-    ]
-    if vip_ids:
-        excluded = sum(1 for t in tweets if t["id"] in vip_ids)
-        print(f"   其中 {len(new_tweets)} 条是新推文（已排除 {excluded} 条 VIP 专属推文）")
-    else:
-        print(f"   其中 {len(new_tweets)} 条是新推文")
+    for username in usernames:
+        print(f"\n🔍 正在获取 @{username} 的最新推文...")
+        tweets = collector.get_recent_tweets(username, count=regular_count)
+        print(f"   拉取到 {len(tweets)} 条（已过滤转推/回复）")
 
-    if not new_tweets and not vip_new:
+        # 去重 + 排除 VIP 推文（VIP 走专属通道，不发给普通群）
+        new_tweets = [
+            t for t in tweets
+            if not storage.is_seen(t["id"]) and t["id"] not in vip_ids
+        ]
+        if vip_ids:
+            excluded = sum(1 for t in tweets if t["id"] in vip_ids)
+            print(f"   其中 {len(new_tweets)} 条是新推文（已排除 {excluded} 条 VIP 专属推文）")
+        else:
+            print(f"   其中 {len(new_tweets)} 条是新推文")
+
+        for t in new_tweets:
+            all_new_tweets.append((username, t))
+
+    if not all_new_tweets and not vip_new:
         print("\n✅ 没有新推文，无需推送。")
         storage.save()
         return
 
     # ---- ③ 推送普通推文 → 普通群 ----
-    if new_tweets:
+    if all_new_tweets:
         success = 0
-        for i, tweet in enumerate(new_tweets, 1):
-            if _process_tweet(tweet, translator, feishu, storage, target_username, i, len(new_tweets)):
+        for i, (username, tweet) in enumerate(all_new_tweets, 1):
+            if _process_tweet(tweet, translator, feishu, storage, username, i, len(all_new_tweets)):
                 success += 1
-        print(f"\n📢 普通推文: 成功 {success}/{len(new_tweets)} 条")
+        print(f"\n📢 普通推文: 成功 {success}/{len(all_new_tweets)} 条")
     else:
         print("\n✅ 没有新的普通推文")
 
@@ -279,7 +287,7 @@ def main() -> None:
     if vip_new and vip_feishu:
         vip_success = 0
         for i, tweet in enumerate(vip_new, 1):
-            if _process_tweet(tweet, translator, vip_feishu, storage, target_username, i, len(vip_new), title_prefix="🌟 订阅专属"):
+            if _process_tweet(tweet, translator, vip_feishu, storage, primary_username, i, len(vip_new), title_prefix="🌟 订阅专属"):
                 vip_success += 1
         print(f"🌟 订阅推文: 成功 {vip_success}/{len(vip_new)} 条（仅 VIP 群）")
     elif has_vip:
@@ -298,7 +306,8 @@ def main() -> None:
 
 def _run_backfill() -> None:
     """回填 100 条历史推文，跳过重复检查。"""
-    target_username = os.environ.get("TARGET_USERNAME", "Serenity").strip()
+    target_username_raw = os.environ.get("TARGET_USERNAME", "Serenity").strip()
+    target_username = target_username_raw.split(",")[0].strip()  # 回填只针对主账号
 
     auth_token = _get_env("X_AUTH_TOKEN")
     ct0 = _get_env("X_CT0")
