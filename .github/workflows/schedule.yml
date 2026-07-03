@@ -38,7 +38,7 @@ jobs:
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
-          TARGET_USERNAME: "aleabitoreddit"
+          TARGET_USERNAME: "aleabitoreddit,chuge857"
         run: |
           echo "📢 定时采集模式"
           python main.py
