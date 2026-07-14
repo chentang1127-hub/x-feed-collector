@@ -1,0 +1,35 @@
+      - name: Schedule next run
+        if: always()
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set +e  # 任何命令失败都不退出
+
+          # 检查活跃任务数（失败时默认 0，继续调度）
+          RUNNING=$(curl -s -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress&status=queued&status=pending&per_page=20" | \
+            python3 -c "
+import json,sys
+try:
+    data=json.load(sys.stdin)
+    others=[r for r in data['workflow_runs'] if r['id']!='${{ github.run_id }}']
+    print(len(others))
+except:
+    print(0)
+" 2>/dev/null || echo "0")
+
+          RUNNING=${RUNNING:-0}
+          if [ "$RUNNING" -gt 0 ]; then
+            echo "⏭️ 已有 $RUNNING 个其他任务，跳过调度（链是活的）"
+            exit 0
+          fi
+
+          echo "⏳ 30 分钟后触发下一次采集..."
+          sleep 1800
+          curl -s -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"collect"}' || echo "⚠️ 调度请求失败（下次重试）"
+          echo "🔁 本轮调度完成"
