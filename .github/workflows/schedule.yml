@@ -1,11 +1,10 @@
 name: Scheduled Collection
 
 on:
-  workflow_dispatch:  # 手动触发
-  repository_dispatch:  # 自触发链
+  workflow_dispatch:
+  repository_dispatch:
     types: [collect]
 
-# 防重复：同一时间只允许一个实例运行
 concurrency:
   group: scheduled-collection
   cancel-in-progress: false
@@ -40,7 +39,7 @@ jobs:
           FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
           TARGET_USERNAME: "aleabitoreddit,chuge857"
         run: |
-          echo "📢 定时采集模式"
+          echo "Collecting tweets..."
           python main.py
 
       - name: Commit seen_tweets.json
@@ -53,21 +52,19 @@ jobs:
           git stash pop || true
           git add data/seen_tweets.json
           if git diff --staged --quiet; then
-            echo "📭 去重记录无变化"
+            echo "No changes to seen_tweets.json"
           else
             git commit -m "chore: update seen tweets [skip ci]"
             git push
-            echo "✅ 去重记录已提交"
+            echo "Seen tweets committed"
           fi
 
-      # 自触发：永不失败，即使 API 挂了也能自动恢复
       - name: Schedule next run
         if: always()
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          set +e  # 任何命令失败都不退出
-
+          set +e
           RUNNING=$(curl -s -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress&status=queued&status=pending&per_page=20" | \
@@ -80,18 +77,16 @@ try:
 except:
     print(0)
 " 2>/dev/null || echo "0")
-
           RUNNING=${RUNNING:-0}
           if [ "$RUNNING" -gt 0 ]; then
-            echo "⏭️ 已有 $RUNNING 个其他任务，跳过调度（链是活的）"
+            echo "Skipping dispatch, chain is alive ($RUNNING others)"
             exit 0
           fi
-
-          echo "⏳ 30 分钟后触发下一次采集..."
+          echo "Waiting 30 minutes..."
           sleep 1800
           curl -s -X POST \
             -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/dispatches" \
-            -d '{"event_type":"collect"}' || echo "⚠️ 调度请求失败（下次自动重试）"
-          echo "🔁 本轮调度完成"
+            -d '{"event_type":"collect"}' || echo "Dispatch failed, will retry next time"
+          echo "Dispatch done"
