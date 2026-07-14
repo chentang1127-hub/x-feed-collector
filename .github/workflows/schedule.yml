@@ -1,3 +1,66 @@
+name: Scheduled Collection
+
+on:
+  workflow_dispatch:  # 手动触发
+  repository_dispatch:  # 自触发链
+    types: [collect]
+
+# 防重复：同一时间只允许一个实例运行
+concurrency:
+  group: scheduled-collection
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run collector
+        env:
+          X_AUTH_TOKEN:    ${{ secrets.X_AUTH_TOKEN }}
+          X_CT0:           ${{ secrets.X_CT0 }}
+          FEISHU_APP_ID:   ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_VIP_WEBHOOK_URL: ${{ secrets.FEISHU_VIP_WEBHOOK_URL }}
+          TARGET_USERNAME: "aleabitoreddit,chuge857"
+        run: |
+          echo "📢 定时采集模式"
+          python main.py
+
+      - name: Commit seen_tweets.json
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked
+          git pull --rebase origin main
+          git stash pop || true
+          git add data/seen_tweets.json
+          if git diff --staged --quiet; then
+            echo "📭 去重记录无变化"
+          else
+            git commit -m "chore: update seen tweets [skip ci]"
+            git push
+            echo "✅ 去重记录已提交"
+          fi
+
+      # 自触发：永不失败，即使 API 挂了也能自动恢复
       - name: Schedule next run
         if: always()
         env:
@@ -5,7 +68,6 @@
         run: |
           set +e  # 任何命令失败都不退出
 
-          # 检查活跃任务数（失败时默认 0，继续调度）
           RUNNING=$(curl -s -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress&status=queued&status=pending&per_page=20" | \
@@ -31,5 +93,5 @@ except:
             -H "Authorization: Bearer $GH_PAT" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/dispatches" \
-            -d '{"event_type":"collect"}' || echo "⚠️ 调度请求失败（下次重试）"
+            -d '{"event_type":"collect"}' || echo "⚠️ 调度请求失败（下次自动重试）"
           echo "🔁 本轮调度完成"
